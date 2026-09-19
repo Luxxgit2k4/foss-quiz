@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FOSS Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F6F8FA;
+    --panel: #FFFFFF;
+    --ink: #1F2328;
+    --muted: #59636E;
+    --line: #D1D9E0;
+    --gutter: #F0F3F6;
+    --add-bg: #DAFBE1;
+    --add-gutter: #B7F0C4;
+    --add-ink: #0F5323;
+    --add-mark: #1A7F37;
+    --del-bg: #FFEBE9;
+    --del-gutter: #FFCECB;
+    --del-ink: #82071E;
+    --del-mark: #CF222E;
+    --merged: #8250DF;
+    --note: #FDF1D8;
+    --note-ink: #5C3D00;
+    --accent: #0969DA;
+    --focus: #0969DA;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1117;
+      --panel: #151B23;
+      --ink: #E6EDF3;
+      --muted: #9198A1;
+      --line: #30363D;
+      --gutter: #1B222C;
+      --add-bg: #10291B;
+      --add-gutter: #17422A;
+      --add-ink: #7EE787;
+      --add-mark: #3FB950;
+      --del-bg: #33141A;
+      --del-gutter: #4B1B23;
+      --del-ink: #FFA198;
+      --del-mark: #F85149;
+      --merged: #A371F7;
+      --note: #2B2410;
+      --note-ink: #F2CC60;
+      --accent: #4493F8;
+      --focus: #4493F8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1117;
+    --panel: #151B23;
+    --ink: #E6EDF3;
+    --muted: #9198A1;
+    --line: #30363D;
+    --gutter: #1B222C;
+    --add-bg: #10291B;
+    --add-gutter: #17422A;
+    --add-ink: #7EE787;
+    --add-mark: #3FB950;
+    --del-bg: #33141A;
+    --del-gutter: #4B1B23;
+    --del-ink: #FFA198;
+    --del-mark: #F85149;
+    --merged: #A371F7;
+    --note: #2B2410;
+    --note-ink: #F2CC60;
+    --accent: #4493F8;
+    --focus: #4493F8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--display);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .app {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: clamp(14px, 3vw, 32px);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: clamp(14px, 2.4vw, 24px);
+  }
+
+  /* commit graph progress */
+  .graph-wrap { display: flex; align-items: center; gap: 16px; }
+  .graph {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    height: 16px;
+  }
+  .graph::before {
+    content: "";
+    position: absolute;
+    left: 4px; right: 4px; top: 50%;
+    height: 2px;
+    background: var(--line);
+    transform: translateY(-50%);
+  }
+  .graph i {
+    position: relative;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--line);
+    display: block;
+    flex: none;
+  }
+  .graph i.done { background: var(--add-mark); border-color: var(--add-mark); }
+  .graph i.now { width: 14px; height: 14px; border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .graph i.merged { background: var(--merged); border-color: var(--merged); }
+  .count { font-size: 0.95rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* pull request panel */
+  .pr {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: clamp(18px, 3.6vw, 40px);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 2.6vw, 28px);
+  }
+  .pr-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--add-mark);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  }
+  .pill.approved { color: var(--add-mark); }
+  .pill.merged { color: var(--merged); }
+  .pill.draft { color: var(--muted); }
+  .repo { color: var(--muted); font-size: 1rem; }
+  .repo b { color: var(--ink); font-weight: 700; }
+
+  h1, h2 { margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+  h2.q {
+    font-size: clamp(1.7rem, 4.2vw, 3.3rem);
+    line-height: 1.12;
+    font-weight: 800;
+    max-width: 24ch;
+  }
+  h2.q.wide { max-width: 30ch; }
+
+  /* diff block holds the options */
+  .diff {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: var(--mono);
+  }
+  .diff-file {
+    background: var(--gutter);
+    border-bottom: 1px solid var(--line);
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 3.2rem 2rem 1fr;
+    align-items: stretch;
+    font-size: clamp(1.05rem, 2.3vw, 1.75rem);
+    line-height: 1.35;
+    border-top: 1px solid var(--line);
+  }
+  .row:first-of-type { border-top: 0; }
+  .row > * { padding: clamp(8px, 1.3vw, 16px) 0; }
+  .row .ln {
+    background: var(--gutter);
+    color: var(--muted);
+    text-align: center;
+    font-weight: 600;
+  }
+  .row .sign { text-align: center; font-weight: 600; color: var(--muted); }
+  .row .txt { padding-right: 16px; overflow-wrap: anywhere; }
+  .row.enter { animation: rowin 0.28s ease-out both; animation-delay: calc(var(--i) * 90ms); }
+  @keyframes rowin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .row.add { background: var(--add-bg); color: var(--add-ink); }
+  .row.add .ln { background: var(--add-gutter); color: var(--add-ink); }
+  .row.add .sign { color: var(--add-mark); }
+  .row.add .txt { font-weight: 600; }
+  .row.del { background: var(--del-bg); color: var(--del-ink); }
+  .row.del .ln { background: var(--del-gutter); color: var(--del-ink); }
+  .row.del .sign { color: var(--del-mark); }
+  .row.del .txt { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--del-mark) 70%, transparent); }
+  .row.reveal { animation: flip 0.45s ease-out both; }
+  @keyframes flip { from { filter: saturate(0); opacity: 0.6; } to { filter: none; opacity: 1; } }
+
+  /* review comment holds the explanation */
+  .review {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+    background: var(--note);
+    color: var(--note-ink);
+    border: 1px solid color-mix(in srgb, var(--note-ink) 25%, transparent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: clamp(1rem, 1.9vw, 1.35rem);
+    line-height: 1.4;
+    animation: rowin 0.3s ease-out both;
+  }
+  .review .who { font-weight: 800; white-space: nowrap; }
+  .review p { margin: 0; max-width: 62ch; }
+
+  /* start and end screens */
+  .hero { display: flex; flex-direction: column; gap: clamp(14px, 2.4vw, 24px); justify-content: center; flex: 1; }
+  h1 { font-size: clamp(3rem, 11vw, 8rem); line-height: 0.95; font-weight: 800; }
+  .lede { font-size: clamp(1.15rem, 2.4vw, 1.7rem); color: var(--muted); max-width: 34ch; line-height: 1.35; margin: 0; }
+  .cmd {
+    font-family: var(--mono);
+    font-size: clamp(0.9rem, 1.8vw, 1.15rem);
+    background: var(--gutter);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 16px;
+    align-self: flex-start;
+    color: var(--ink);
+  }
+  .cmd span { color: var(--muted); }
+
+  /* controls */
+  .dock { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 6px; margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+  .controls { display: flex; align-items: center; gap: 12px; }
+  .mid { flex: 1; display: flex; justify-content: center; gap: 12px; }
+  .hint { color: var(--muted); font-size: 0.85rem; text-align: center; margin: 0; }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-weight: 700;
+    font-size: clamp(1rem, 1.8vw, 1.25rem);
+    cursor: pointer;
+    min-height: 48px;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn.primary {
+    background: var(--add-mark);
+    border-color: var(--add-mark);
+    color: #FFFFFF;
+    min-width: 12ch;
+  }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.primary.merge { background: var(--merged); border-color: var(--merged); }
+
+  @media (max-width: 720px) {
+    .hint { display: none; }
+    .graph-wrap { gap: 8px; }
+    .graph { min-width: 0; }
+    .graph i { width: 6px; height: 6px; border-width: 1px; }
+    .graph i.now { width: 10px; height: 10px; }
+    .count { font-size: 0.8rem; }
+    .controls { flex-wrap: wrap; }
+    .mid { order: -1; flex-basis: 100%; }
+    .mid .btn { flex: 1; }
+    .controls > .btn { flex: 1; }
+    .row { grid-template-columns: 2.4rem 1.6rem 1fr; }
+    .review { grid-template-columns: 1fr; gap: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .row.enter, .row.reveal, .review { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="graph-wrap">
+    <div class="graph" id="graph" aria-hidden="true"></div>
+    <div class="count" id="count"></div>
+  </div>
+  <main class="pr" id="stage" aria-live="polite"></main>
+  <div class="dock">
+    <div class="controls">
+      <button class="btn" id="prev" type="button">Previous</button>
+      <div class="mid">
+        <button class="btn" id="opts" type="button">Show options</button>
+        <button class="btn" id="rev" type="button">Reveal answer</button>
+      </div>
+      <button class="btn primary" id="next" type="button"></button>
+    </div>
+    <p class="hint">Space: next step. Right arrow: skip to next question. Left arrow: previous. O: options. R: reveal answer. F: full screen.</p>
+  </div>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    q: "What is the difference between FOSS and FLOSS?",
+    o: ["FLOSS is only for Linux software", "FLOSS software cannot be sold", "Almost none: FLOSS adds \"libre\" so that free clearly means freedom, not price", "FOSS costs money and FLOSS is free of charge"],
+    a: 2,
+    why: "FOSS is Free and Open Source Software. FLOSS is Free/Libre and Open Source Software. Same software, and \"libre\" just removes the confusion between free as in freedom and free as in price."
+  },
+  {
+    q: "What are the four essential freedoms of free software?",
+    o: ["Run it, sell it, patent it, rebrand it", "Read it, print it, translate it, archive it", "Download it, install it, update it, uninstall it", "Run it for any purpose, study and change it, share copies, share your changes"],
+    a: 3,
+    why: "Freedom to run, to study and change, to redistribute, and to share your modified versions. Access to the source code is a precondition for the second and fourth."
+  },
+  {
+    q: "What does GNU stand for?",
+    o: ["GNU's Not Unix", "Global Network Utility", "General Node Unit", "Generic New Userland"],
+    a: 0,
+    why: "A recursive acronym and a joke. Richard Stallman launched the project in 1983 and founded the Free Software Foundation in 1985."
+  },
+  {
+    q: "The term \"open source\" was coined in 1998, right after which company released its browser code?",
+    o: ["Microsoft", "Netscape", "Apple", "IBM"],
+    a: 1,
+    why: "Netscape opened up its browser code, which became Mozilla and later Firefox. A group then picked \"open source\" as a friendlier, business-ready name."
+  },
+  {
+    q: "What does the Open Source Initiative (OSI) do?",
+    o: ["Hosts most of the world's open source code", "Certifies open source developers", "Maintains the Open Source Definition and approves licenses", "Owns the Linux trademark"],
+    a: 2,
+    why: "If a license is on the OSI approved list, it meets the Open Source Definition."
+  },
+  {
+    q: "What is the difference between a copyleft license and a permissive license?",
+    o: ["Copyleft requires derivative works to stay under the same freedoms, permissive lets you reuse the code even in closed source", "Copyleft costs money and permissive is free of charge", "Copyleft is for software and permissive is for documents", "Copyleft expires after a few years and permissive never does"],
+    a: 0,
+    why: "The GPL is the classic copyleft license. MIT, BSD and Apache 2.0 are permissive: keep the license notice and you can reuse the code almost anywhere."
+  },
+  {
+    q: "The AGPL was written to close which loophole in the GPL?",
+    o: ["Hosting modified code as a network service without sharing it", "Using GPL code inside Windows", "Selling GPL software for money", "Translating GPL documentation"],
+    a: 0,
+    why: "Under the plain GPL, running a modified version on your servers does not force you to share the changes. The AGPL says network use counts too."
+  },
+  {
+    q: "Which family of licenses is made for photos, writing and music instead of software?",
+    o: ["GPL-3.0", "Creative Commons", "Apache 2.0", "MIT"],
+    a: 1,
+    why: "Creative Commons licenses are made for creative works. Wikipedia's text is shared this way."
+  },
+  {
+    q: "Strictly speaking, what is Linux?",
+    o: ["An operating system", "A desktop environment", "A distribution", "A kernel"],
+    a: 3,
+    why: "Linux is the kernel. Distros bundle it with GNU tools and much more, which is why some people say GNU/Linux."
+  },
+  {
+    q: "Which version control tool did Linus Torvalds create in 2005 to manage kernel development?",
+    o: ["Git", "Mercurial", "Subversion", "GitHub"],
+    a: 0,
+    why: "He started Git after the kernel team lost free access to the BitKeeper tool. GitHub came later, built by other people."
+  },
+  {
+    q: "LibreOffice began as a fork of which project?",
+    o: ["AbiWord", "Google Docs", "OpenOffice.org", "Microsoft Office"],
+    a: 2,
+    why: "Developers forked OpenOffice.org in 2010 after Oracle acquired Sun, and formed The Document Foundation."
+  },
+  {
+    q: "Which open source database is a fork of MySQL, started by MySQL's original creator?",
+    o: ["MongoDB", "MariaDB", "Redis", "SQLite"],
+    a: 1,
+    why: "MariaDB was another fork that followed Oracle's acquisition of Sun. Forking is a core FOSS right, and a safety net."
+  },
+  {
+    q: "Which open source media player uses a traffic cone as its logo?",
+    o: ["Kodi", "Winamp", "mpv", "VLC"],
+    a: 3,
+    why: "VLC comes from VideoLAN, which started as a student project in France."
+  },
+  {
+    q: "What is the open source base of Android called?",
+    o: ["AOSP (Android Open Source Project)", "APK", "ART", "GMS"],
+    a: 0,
+    why: "The Android Open Source Project. Google's own apps and services on top of it are not open source."
+  },
+  {
+    q: "Roughly what share of all websites run on WordPress?",
+    o: ["About 1 in 100", "About 1 in 20", "Roughly 40 percent, so more than 1 in 3", "About 1 in 1000"],
+    a: 2,
+    why: "Web surveys put it around 40 percent. It is licensed under the GPL."
+  },
+  {
+    q: "Wikipedia runs on which free software?",
+    o: ["MediaWiki", "WordPress", "Drupal", "Joomla"],
+    a: 0,
+    why: "MediaWiki is free software, so you can host your own wiki on the same engine as Wikipedia."
+  },
+  {
+    q: "How did Blender become open source in 2002?",
+    o: ["Google bought it and released it", "Fans crowdfunded its release", "Its author lost the source code", "A government funded it"],
+    a: 1,
+    why: "The Blender Foundation raised about 100,000 euros from the community in a matter of weeks and released it under the GPL."
+  },
+  {
+    q: "Which open source hardware project began in Italy?",
+    o: ["Raspberry Pi", "BeagleBone", "Arduino", "Micro:bit"],
+    a: 2,
+    why: "Arduino started in Ivrea, and its board designs are open, so anyone can build and modify them."
+  },
+  {
+    q: "Mastodon servers talk to each other using which protocol?",
+    o: ["SMTP", "FTP", "OAuth", "ActivityPub"],
+    a: 3,
+    why: "ActivityPub is a W3C standard. It is what makes the fediverse possible."
+  },
+  {
+    q: "Kubernetes started at Google. Which foundation looks after it today?",
+    o: ["CNCF (Cloud Native Computing Foundation)", "FSF", "Mozilla Foundation", "OSI"],
+    a: 0,
+    why: "Kubernetes came out of Google and now lives under the CNCF. The name is Greek for helmsman."
+  },
+  {
+    q: "Heartbleed, the 2014 security bug, was found in which open source library?",
+    o: ["OpenSSH", "OpenSSL", "glibc", "curl"],
+    a: 1,
+    why: "OpenSSL secured a big part of the web but had very little funding. Heartbleed pushed the industry to fund critical projects."
+  },
+  {
+    q: "\"Given enough eyeballs, all bugs are shallow.\" What is this called?",
+    o: ["Moore's Law", "Murphy's Law", "Linus's Law", "Conway's Law"],
+    a: 2,
+    why: "Eric S. Raymond named it after Linus Torvalds in his essay on open development."
+  },
+  {
+    q: "What is a pull request?",
+    o: ["A request to download a project", "A bug report", "A request to delete a repository", "A proposal to merge your changes into a project"],
+    a: 3,
+    why: "You change your copy of a project, then ask the maintainers to pull those changes in. Your first one was probably a typo fix."
+  },
+  {
+    q: "Which file in a repository tells newcomers how to contribute?",
+    o: ["README.md", "CONTRIBUTING.md", "LICENSE", "CHANGELOG"],
+    a: 1,
+    why: "README explains the project, LICENSE says how you may use it, and CHANGELOG lists what changed."
+  },
+  {
+    q: "Which company started Hacktoberfest in 2014?",
+    o: ["Red Hat", "Canonical", "Cloudflare", "DigitalOcean"],
+    a: 3,
+    why: "It began as a month-long push to send pull requests every October, with GitHub as a partner."
+  },
+  {
+    q: "What is Google Summer of Code?",
+    o: ["A program that pays newcomers to work on open source projects", "A conference held by Google", "An exam for Google engineers", "A hackathon held each July"],
+    a: 0,
+    why: "Contributors work with a mentor organisation on a project for a few months and get a stipend."
+  },
+  {
+    q: "Which open source internship program focuses on people underrepresented in tech?",
+    o: ["Advent of Code", "Outreachy", "Google Code Jam", "Hacktoberfest"],
+    a: 1,
+    why: "Outreachy offers paid remote internships to people who face bias or under-representation in tech."
+  },
+  {
+    q: "FOSDEM, a huge free software gathering, happens every year in which city?",
+    o: ["Berlin", "Amsterdam", "Brussels", "Paris"],
+    a: 2,
+    why: "Every February in Brussels, and entry is free. It is on the bingo card for a reason."
+  }
+];
+
+const N = QUESTIONS.length;
+const LETTERS = ["A", "B", "C", "D"];
+const stage = document.getElementById("stage");
+const graph = document.getElementById("graph");
+const count = document.getElementById("count");
+const prevBtn = document.getElementById("prev");
+const optsBtn = document.getElementById("opts");
+const revBtn = document.getElementById("rev");
+const nextBtn = document.getElementById("next");
+
+// idx: -1 = start screen, 0..N-1 = questions, N = end screen
+// Each question remembers its own state, so the host can jump around freely.
+let idx = -1;
+const state = QUESTIONS.map(() => ({ options: false, revealed: false }));
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+// Turns `backticked` text into inline code without using innerHTML
+function withCode(parent, text) {
+  text.split("`").forEach((part, i) => {
+    if (i % 2 === 1) {
+      const c = el("code", "", part);
+      c.style.fontFamily = "var(--mono)";
+      c.style.fontSize = "0.88em";
+      c.style.background = "var(--gutter)";
+      c.style.border = "1px solid var(--line)";
+      c.style.borderRadius = "6px";
+      c.style.padding = "0 0.3em";
+      parent.appendChild(c);
+    } else if (part) {
+      parent.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
+function buildGraph() {
+  graph.textContent = "";
+  for (let i = 0; i < N; i++) graph.appendChild(el("i"));
+}
+
+function updateGraph() {
+  [...graph.children].forEach((d, i) => {
+    d.className = "";
+    if (idx >= N) d.className = "merged";
+    else if (i < idx) d.className = "done";
+    else if (i === idx) d.className = "now";
+  });
+  if (idx < 0) count.textContent = N + " questions";
+  else if (idx >= N) count.textContent = "Merged";
+  else count.textContent = "Question " + (idx + 1) + " of " + N;
+}
+
+function pill(text, kind) {
+  return el("span", "pill " + kind, text);
+}
+
+function hero(pillEl, repoParts, title, lede, cmdText) {
+  const h = el("div", "hero");
+  const head = el("div", "pr-head");
+  head.appendChild(pillEl);
+  const repo = el("span", "repo");
+  repoParts.forEach((r) => repo.appendChild(r));
+  head.appendChild(repo);
+  h.appendChild(head);
+  h.appendChild(el("h1", "", title));
+  h.appendChild(el("p", "lede", lede));
+  const cmd = el("div", "cmd");
+  cmd.appendChild(el("span", "", "$ "));
+  cmd.appendChild(document.createTextNode(cmdText));
+  h.appendChild(cmd);
+  return h;
+}
+
+function render(animateOptions) {
+  stage.textContent = "";
+  updateGraph();
+  const onQuestion = idx >= 0 && idx < N;
+  prevBtn.disabled = idx < 0;
+  nextBtn.classList.remove("merge");
+
+  if (!onQuestion) {
+    optsBtn.disabled = true;
+    revBtn.disabled = true;
+  }
+
+  if (idx < 0) {
+    nextBtn.textContent = "Start quiz";
+    stage.appendChild(hero(
+      pill("Open", "open"),
+      [document.createTextNode("meetup/"), el("b", "", "foss-quiz")],
+      "FOSS Quiz",
+      "Answer out loud first. If the room needs a nudge, show the hints.",
+      "git checkout -b quiz-night"
+    ));
+    return;
+  }
+
+  if (idx >= N) {
+    nextBtn.textContent = "Play again";
+    nextBtn.classList.add("merge");
+    stage.appendChild(hero(
+      pill("Merged", "merged"),
+      [document.createTextNode("quiz-night into "), el("b", "", "main")],
+      "MERGED!",
+      "All " + N + " questions reviewed. Thanks for playing, and keep contributing.",
+      "git push origin main"
+    ));
+    return;
+  }
+
+  const item = QUESTIONS[idx];
+  const st = state[idx];
+  nextBtn.textContent = idx === N - 1 ? "Finish" : "Next question";
+  optsBtn.disabled = st.options;
+  revBtn.disabled = st.revealed;
+
+  const head = el("div", "pr-head");
+  head.appendChild(st.revealed ? pill("Approved", "approved") : pill("Open", "open"));
+  const repo = el("span", "repo");
+  repo.appendChild(document.createTextNode("foss-quiz "));
+  repo.appendChild(el("b", "", "#" + (idx + 1)));
+  head.appendChild(repo);
+  stage.appendChild(head);
+
+  const h = el("h2", "q" + (item.q.length > 60 ? " wide" : ""));
+  withCode(h, item.q);
+  stage.appendChild(h);
+
+  if (st.options) {
+    // Full diff: all four options, and the answer marks them if revealed
+    const diff = el("div", "diff");
+    diff.setAttribute("role", "list");
+    diff.appendChild(el("div", "diff-file", "hints.txt"));
+    item.o.forEach((text, i) => {
+      let cls = "row";
+      let sign = "";
+      if (st.revealed) {
+        cls += i === item.a ? " add" : " del";
+        if (animateOptions === "reveal") cls += " reveal";
+        sign = i === item.a ? "+" : "-";
+      } else if (animateOptions === "options") {
+        cls += " enter";
+      }
+      const row = el("div", cls);
+      row.style.setProperty("--i", i);
+      row.setAttribute("role", "listitem");
+      row.appendChild(el("div", "ln", LETTERS[i]));
+      row.appendChild(el("div", "sign", sign));
+      const t = el("div", "txt");
+      withCode(t, text);
+      row.appendChild(t);
+      diff.appendChild(row);
+    });
+    stage.appendChild(diff);
+  } else if (st.revealed) {
+    // Answer revealed without the options: show only the correct line
+    const diff = el("div", "diff");
+    diff.appendChild(el("div", "diff-file", "answer.txt"));
+    const row = el("div", "row add" + (animateOptions === "reveal" ? " reveal" : ""));
+    row.appendChild(el("div", "ln", ""));
+    row.appendChild(el("div", "sign", "+"));
+    const t = el("div", "txt");
+    withCode(t, item.o[item.a]);
+    row.appendChild(t);
+    diff.appendChild(row);
+    stage.appendChild(diff);
+  }
+
+  if (st.revealed) {
+    const review = el("div", "review");
+    review.appendChild(el("span", "who", st.options ? "Answer " + LETTERS[item.a] : "Answer"));
+    const p = el("p");
+    withCode(p, item.why);
+    review.appendChild(p);
+    stage.appendChild(review);
+  }
+}
+
+// ----- actions -----
+function showOptions() {
+  if (idx < 0 || idx >= N || state[idx].options) return;
+  state[idx].options = true;
+  render("options");
+}
+
+function revealAnswer() {
+  if (idx < 0 || idx >= N || state[idx].revealed) return;
+  state[idx].revealed = true;
+  render("reveal");
+}
+
+function nextQuestion() {
+  if (idx >= N) {
+    state.forEach((s) => { s.options = false; s.revealed = false; });
+    idx = -1;
+  } else {
+    idx += 1;
+  }
+  render();
+}
+
+function prevQuestion() {
+  if (idx < 0) return;
+  idx -= 1;
+  render();
+}
+
+// Space and Enter walk through the usual order: options, then answer, then next question
+function smartStep() {
+  if (idx < 0 || idx >= N) return nextQuestion();
+  const st = state[idx];
+  if (!st.options && !st.revealed) showOptions();
+  else if (!st.revealed) revealAnswer();
+  else nextQuestion();
+}
+
+function bind(btn, fn) {
+  btn.addEventListener("click", (e) => {
+    fn();
+    if (e.detail > 0) btn.blur(); // keep keyboard shortcuts working after a mouse click
+  });
+}
+bind(nextBtn, nextQuestion);
+bind(prevBtn, prevQuestion);
+bind(optsBtn, showOptions);
+bind(revBtn, revealAnswer);
+
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const onButton = e.target && e.target.tagName === "BUTTON";
+  const k = e.key;
+  if (k === "ArrowRight" || k === "PageDown" || k === "n" || k === "N") { e.preventDefault(); nextQuestion(); }
+  else if (k === "ArrowLeft" || k === "PageUp" || k === "p" || k === "P") { e.preventDefault(); prevQuestion(); }
+  else if ((k === " " || k === "Enter") && !onButton) { e.preventDefault(); smartStep(); }
+  else if (k === "o" || k === "O") { showOptions(); }
+  else if (k === "r" || k === "R" || k === "a" || k === "A") { revealAnswer(); }
+  else if (k === "f" || k === "F") {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    } catch (err) { /* full screen can be blocked inside embeds */ }
+  }
+});
+
+buildGraph();
+render();
+</script>
+</body>
+</html>
